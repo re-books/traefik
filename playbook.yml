@@ -1,0 +1,48 @@
+---
+- name: Install traefik
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: Create directory
+      file:
+        path: "{{ path }}"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ group }}"
+
+    - name: Create acme file
+      file:
+        path: "{{ path }}/acme.json"
+        state: touch
+        mode: 0600
+        owner: "{{ user }}"
+        group: "{{ group }}"
+
+    - name: Add config file
+      template:
+        src: traefik.toml.j2
+        dest: "{{ path }}/traefik.toml"
+        mode: 0600
+        owner: "{{ user }}"
+        group: "{{ group }}"
+
+    - name: Create network
+      docker_network:
+        name: web
+
+    - name: Create container
+      docker_container:
+        name: traefik
+        image: traefik:2.4
+        restart_policy: unless-stopped
+        recreate: true
+        networks:
+          - name: web
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - "{{ path }}/traefik.toml:/etc/traefik/traefik.toml"
+          - "{{ path }}/acme.json:/acme.json"
+          - /var/run/docker.sock:/var/run/docker.sock
